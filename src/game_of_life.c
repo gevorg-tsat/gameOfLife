@@ -44,7 +44,7 @@ int check_life(int **matrix, int n, int m, int row, int column) {
     int counter = 0;
     for (int i = row - 1; i <= row + 1; i++) {
         for (int j = column - 1; j <= column + 1; j++) {
-            if (j != row && i != column) {
+            if (j != row || i != column) {
                 neighbors[counter][0] = i;
                 neighbors[counter][1] = j;
                 counter++;
@@ -52,13 +52,13 @@ int check_life(int **matrix, int n, int m, int row, int column) {
         }
     }
     for (int i = 0; i < 8; i++) {
-        if (neighbors[i][0] < 0)
+        if (neighbors[i][0] == -1)
             neighbors[i][0] += n;
-        if (neighbors[i][0] >= n)
+        if (neighbors[i][0] == n)
             neighbors[i][0] -= n;
-        if (neighbors[i][1] >= m)
+        if (neighbors[i][1] == m)
             neighbors[i][1] -= m;
-        if (neighbors[i][1] < 0)
+        if (neighbors[i][1] == -1)
             neighbors[i][1] += m;
     }
     counter = 0;
