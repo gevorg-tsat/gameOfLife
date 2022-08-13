@@ -4,92 +4,96 @@
 #include <time.h>
 #include <unistd.h>
 
+// настройка поля
 #define HEIGHT 20
 #define WIDTH 80
-#define SYMVOL_BORT '='
-#define SYMVOL_BORT_SIDE 'N'
-#define SYMVOL_DEATH ' '
-#define SYMVOL_LIVE '#'
+#define SYMBOL_BORT '='
+#define SYMBOL_BORT_SIDE 'N'
+#define SYMBOL_DEATH ' '
+#define SYMBOL_LIVE '#'
 // настройки ручного ввода
-#define BETWEEN_XY = ' ';
-#define END_OF_COORDINATES = '\n';
-#define EXIT = '.';
+#define BETWEEN_XY ' '
+#define END_OF_COORDINATES '\n'
+#define EXIT '.'
 
-// printw("\e[0;$%d;$%d;t]", HEIGHT, WIDTH * 2);
-//  printw("\x1B[2J\x1B[H");
-
-void drawGreeting();
 int enterHumanCoordinates(int **a, int n, int m);
 int enterFileCoordinates(int **a, int n, int m);
-int max(int a, int b);
-void zeroMatrix(int **a, int n, int m);
-void update(int ***matrix, int n, int m);
+int enterHumanSpeedGame();
 int check_life(int **matrix, int n, int m, int row, int column);
 int allocate(int ***matrix, int n, int m);
-void output(int **a, int n, int m);
 int drawFieldPrintw(int **A, int N, int M);
 int drawFieldPrintf(int **A, int N, int M);
+int countAlive(int **matrix, int n, int m);
+
+void zeroMatrix(int **a, int n, int m);
+void update(int ***matrix, int n, int m);
+void drawGreeting();
+void output(int **a, int n, int m);
 void drawLiveDeath();
 void drawGameOver();
-int countAlive(int **matrix, int n, int m);
+
 
 int main(int argc, char **argv) {
     
-    // костыль для решения проблемы с выделением памяти под матрицу поля
-    int size = max(HEIGHT, WIDTH);
-    // выделение памяти под матрицу поля
-    int **field = malloc(HEIGHT * WIDTH * sizeof(int) + size * sizeof(int *));
-    int *ptr = (int *)(field + size);
-    for (int i = 0; i < size; i++) {
-        field[i] = ptr + size * i;
-    }
+    int SPEED_GAME;
     
-    //  вывод приветствия
+    // создание матрицы поля
+    int **field = NULL;
+    allocate(&field, HEIGHT, WIDTH);
+    
+    // вывод приветствия
     drawGreeting();
     
     // выбор чтения файла или ввода с клавиатуры
     if (*(argv[1]) == '1' || *(argv[1]) == '0') {
         if (*(argv[1]) == '1') {
             enterFileCoordinates(field, HEIGHT, WIDTH);
+            SPEED_GAME = enterHumanSpeedGame();
         } else {
             enterHumanCoordinates(field, HEIGHT, WIDTH);
+            SPEED_GAME = enterHumanSpeedGame();
         }
     }
-   
+    
     // переводит терминал в curses-режим
     // (выделяет память под необходимые данные
     // для работы библиотеки, и инициализирует окно stdscr)
     initscr();
-
     // не выводить вводимые символы
     noecho();
+    // не ожидать enter
     nodelay(stdscr, true);
-
     // отрисовка поля
     drawFieldPrintw(field, HEIGHT, WIDTH);
-    
-    
-    //while(getchar() == '\n') {
     int exit = 0;
     int death_all = 0;
     while (!exit && !death_all) {
         // задержка в микросекундах
-        usleep(100000);
-
+        usleep(SPEED_GAME);
         // проверяет буфер и, если он не пуст, отправляет информацию на экран
         refresh();
-
         // очистка экрана
         clear();
-
+        // обновление матрицы поля в соответствии с правилами игры
         update(&field, HEIGHT, WIDTH);
         drawFieldPrintw(field, HEIGHT, WIDTH);
         
-        if (getch() == '.') {
-            exit = 1;
+        switch(getch()) {
+            case 'a': {
+                if (SPEED_GAME > 6250) SPEED_GAME /= 2;
+                break;
+            }
+            case 'z': {
+                if (SPEED_GAME < 100000) SPEED_GAME *= 2;
+                break;
+            }
+            case EXIT: exit = 1;
         }
+        
+        
         if (!countAlive(field, HEIGHT, WIDTH))
             death_all = 1;
+        
     }
     
     // выход из curses-режима
@@ -104,10 +108,26 @@ int main(int argc, char **argv) {
         printf("\n");
         drawLiveDeath();
     }
+    
+    output(field, HEIGHT, WIDTH);
     free(field);
     return 0;
 }
 
+int enterHumanSpeedGame() {
+    int speedMode;
+    int speed;
+    scanf("%d", &speedMode);
+    switch(speedMode) {
+        case 1: speed = 100000; break;
+        case 2: speed = 50000; break;
+        case 3: speed = 25000; break;
+        case 4: speed = 12500; break;
+        case 5: speed = 6250; break;
+        default: speed = 100000;
+    }
+    return speed;
+}
 
 int enterHumanCoordinates(int **a, int n, int m) {
     int isSuccess = 1;
@@ -167,24 +187,15 @@ int enterFileCoordinates(int **a, int n, int m) {
      return isSuccess;
 }
 
-
-int max(int a, int b) {
-    int max = a;
-    if (b > a) {
-        max = b;
-    }
-    return max;
-}
-
 void output(int **a, int n, int m) {
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < m - 1; j++) {
-      printw("%d ", a[i][j]);
+      printf("%d ", a[i][j]);
     }
     if (i < n - 1) {
-      printw("%d\n", a[i][m - 1]);
+      printf("%d\n", a[i][m - 1]);
     } else {
-      printw("%d", a[i][m - 1]);
+      printf("%d", a[i][m - 1]);
     }
   }
 }
@@ -195,6 +206,17 @@ void zeroMatrix(int **a, int n, int m) {
             a[i][j] = 0;
         }
     }
+}
+
+int allocate(int ***matrix, int n, int m) {
+    int isSuccess = 0;
+    *matrix = (int**) malloc(n * m * sizeof(int) + n * sizeof(int*));
+    if (*matrix == NULL)
+        isSuccess = 1;
+    int *ptr = (int*) (*matrix + n);
+    for (int i = 0; i < n; i++)
+        (*matrix)[i] = ptr + m * i;
+    return isSuccess;
 }
 
 void update(int ***matrix, int n, int m) {
@@ -217,11 +239,9 @@ int check_life(int **matrix, int n, int m, int row, int column) {
                 counter++;
                 neighbors[counter][0] = i;
                 neighbors[counter][1] = j;
-                //printw("%d %d\n", neighbors[counter][0], neighbors[counter][1]);
             }
         }
     }
-    
     for (int i = 0; i < 8; i++) {
         if (neighbors[i][0] < 0)
             neighbors[i][0] += n;
@@ -247,74 +267,57 @@ int check_life(int **matrix, int n, int m, int row, int column) {
     return 0;
 }
 
-int allocate(int ***matrix, int n, int m) {
-    int isSuccess = 0;
-    *matrix = (int**) malloc(n * m * sizeof(int) + n * sizeof(int*));
-    if (*matrix == NULL)
-        isSuccess = 1;
-    int *ptr = (int*) (*matrix + n);
+int countAlive(int **matrix, int n, int m) {
+    int result = 0;
     for (int i = 0; i < n; i++)
-        (*matrix)[i] = ptr + m * i;
-    return isSuccess;
+        for (int j = 0; j < m; j++)
+            result += matrix[i][j];
+    return result;
 }
 
 int drawFieldPrintw(int **A, int N, int M) {
-    for(int a=0; a<=81; a++) {
-        printw("%c", SYMVOL_BORT);
-        if(a == 81) {
-            printw("\n");
-        }
+    for (int x = 0; x <= WIDTH + 1; x++) {
+        printw("%c", SYMBOL_BORT);
+        if (x == WIDTH + 1) printw("\n");
     }
-    for(int i = 0; i < N; i++) {
-        printw("%c", SYMVOL_BORT_SIDE);
-        for(int j = 0; j < M; j++) {
-            if(A[i][j] != 1) {
-                printw("%c", SYMVOL_DEATH);
+    for (int y = 0; y < N; y++) {
+        printw("%c", SYMBOL_BORT_SIDE);
+        for(int x = 0; x < M; x++) {
+            if(A[y][x] != 1) {
+                printw("%c", SYMBOL_DEATH);
             } else {
-                printw("%c", SYMVOL_LIVE);
+                printw("%c", SYMBOL_LIVE);
             }
-                
         }
-        printw("%c", SYMVOL_BORT_SIDE);
-        if(i<M-1) {
-            printw("\n");
-        }
+        printw("%c", SYMBOL_BORT_SIDE);
+        if (y < M - 1) printw("\n");
     }
-    for(int a=0; a<=81; a++) {
-        printw("%c", SYMVOL_BORT);
-        if(a == 81) {
-            printw("\n");
-        }
+    for (int x = 0; x <= WIDTH + 1; x++) {
+        printw("%c", SYMBOL_BORT);
+        if (x == WIDTH + 1) printw("\n");
     }
 }
 
 int drawFieldPrintf(int **A, int N, int M) {
-    for(int a=0; a<=81; a++) {
-        printf("%c", SYMVOL_BORT);
-        if(a == 81) {
-            printf("\n");
-        }
+    for (int x = 0; x <= WIDTH + 1; x++) {
+        printf("%c", SYMBOL_BORT);
+        if (x == WIDTH + 1) printf("\n");
     }
-    for(int i = 0; i < N; i++) {
-        printf("%c", SYMVOL_BORT_SIDE);
-        for(int j = 0; j < M; j++) {
-            if(A[i][j] != 1) {
-                printf("%c", SYMVOL_DEATH);
+    for (int y = 0; y < N; y++) {
+        printf("%c", SYMBOL_BORT_SIDE);
+        for(int x = 0; x < M; x++) {
+            if(A[y][x] != 1) {
+                printf("%c", SYMBOL_DEATH);
             } else {
-                printf("%c", SYMVOL_LIVE);
+                printf("%c", SYMBOL_LIVE);
             }
-                
         }
-        printf("%c", SYMVOL_BORT_SIDE);
-        if(i<M-1) {
-            printf("\n");
-        }
+        printf("%c", SYMBOL_BORT_SIDE);
+        if (y < M - 1) printf("\n");
     }
-    for(int a=0; a<=81; a++) {
-        printf("%c", SYMVOL_BORT);
-        if(a == 81) {
-            printf("\n");
-        }
+    for (int x = 0; x <= WIDTH + 1; x++) {
+        printf("%c", SYMBOL_BORT);
+        if (x == WIDTH + 1) printf("\n");
     }
 }
 
@@ -370,13 +373,4 @@ void drawLiveDeath() {
       printf("                X  X  X                                                         \n");
       printf("                                                                                \n");
       printf("================================================================================\n");
-}
-
-
-int countAlive(int **matrix, int n, int m) {
-    int result = 0;
-    for (int i = 0; i < n; i++)
-        for (int j = 0; j < m; j++)
-            result += matrix[i][j];
-    return result;
 }
