@@ -1,12 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+int allocate(int ***matrix, int n, int m);
+void update(int ***matrix, int n, int m);
+int check_life(int **matrix, int n, int m, int row, int column);
+
+int main() {
+    return 0;
+}
+
 void update(int ***matrix, int n, int m) {
     int **matrix_new;
     allocate(&matrix_new, n, m);
     for (int i = 0; i < n; i++)
         for (int j = 0; j < m; j++)
-            matrix_new[i][j] = check_life(matrix[i][j]);
+            matrix_new[i][j] = check_life(*matrix, n, m, i, j);
     free(*matrix);
     *matrix = matrix_new;
 }
@@ -23,9 +31,13 @@ int check_life(int **matrix, int n, int m, int row, int column) {
             }
     for (int i = 0; i < 8; i++) {
         if (neighbors[i][0] < 0)
-            neighbors[i][0] += 80;
+            neighbors[i][0] += n;
+        if (neighbors[i][0] >= n)
+            neighbors[i][0] -= n;
+        if (neighbors[i][1] >= m)
+            neighbors[i][1] -= m;
         if (neighbors[i][1] < 0)
-            neighbors[i][0] += 80;
+            neighbors[i][1] += m;
     }
     counter = 0;
     for (int i = 0; i < 8; i++)
@@ -43,7 +55,7 @@ int check_life(int **matrix, int n, int m, int row, int column) {
 }
 
 int allocate(int ***matrix, int n, int m) {
-    *matrix = malloc(n * m * sizeof(int) + n * size(int*));
+    *matrix = malloc(n * m * sizeof(int) + n * sizeof(int*));
     if (*matrix == NULL)
         return 1;
     int *ptr = (int*) (*matrix + n);
