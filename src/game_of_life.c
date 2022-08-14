@@ -120,11 +120,9 @@ int main(int argc, char **argv) {
   printfField(field, HEIGHT, WIDTH);
   if (isExit) {
     drawGameOver();
-  }
-  if (isAllDeath) {
+  } else if (isAllDeath) {
     drawLiveDeath();
-  }
-  if (!isMovement) {
+  } else if (!isMovement) {
     drawInfinity();
   }
   free(field);
