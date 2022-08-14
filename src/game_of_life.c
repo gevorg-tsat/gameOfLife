@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ncurses.h>
-#include <time.h>
 #include <unistd.h>
 
 // настройка поля
@@ -14,29 +13,39 @@
 #define SYMBOL_K_LIVE 'L'
 #define SYMBOL_K_DEATH 'D'
 
+// настройки управления игрой
+#define PAUSE ' '
+#define CURSOR_UP 'w'
+#define CURSOR_DOWN 's'
+#define CURSOR_LEFT 'a'
+#define CURSOR_RIGHT 'd'
+#define CURSOR_SWITCH 'e'
+#define ENTER_LIFE '\n'
+#define EXIT '.'
+
 // настройки ручного ввода
 #define BETWEEN_XY ' '
 #define END_OF_COORDINATES '\n'
-#define EXIT '.'
+
 
 int enterHumanCoordinates(int **a, int n, int m);
 int enterFileCoordinates(int **a, int n, int m);
-void changeSpeedGame(char speedMode, int *speedGame);
 int changeSpeedGameScanf();
 int check_life(int **matrix, int n, int m, int row, int column);
 int allocate(int ***matrix, int n, int m);
+int countAlive(int **matrix, int n, int m);
+int update(int ***matrix, int n, int m);
+
+void changeSpeedGame(char speedMode, int *speedGame);
 void printwField(int **A, int N, int M, int k_x, int k_y);
 void printfField(int **A, int N, int M);
-int countAlive(int **matrix, int n, int m);
-
+void cursorControl(char command, int *isCursor, int *isEnter, int *k_x, int *k_y, int **field, int n, int m);
 void zeroMatrix(int **a, int n, int m);
-int update(int ***matrix, int n, int m);
 void drawGreeting();
-void output(int **a, int n, int m);
 void drawLiveDeath();
 void drawGameOver();
 void drawInfinity();
-
+void drawManual();
 void gameControl(char command, int *isPause, int *isExit, int *isCursor, int *isEnter, int *speedGame, int *k_x, int *k_y, int **field, int n, int m);
 
 
@@ -64,7 +73,6 @@ int main(int argc, char **argv) {
         }
     }
     
-    
     // переводит терминал в curses-режим
     // (выделяет память под необходимые данные
     // для работы библиотеки, и инициализирует окно stdscr)
@@ -83,7 +91,6 @@ int main(int argc, char **argv) {
     int isCursor = 0;
     int isEnter = 0;
     
-    
     while (!isExit && !isAllDeath && isMovement) {
         // задержка в микросекундах
         usleep(SPEED_GAME);
@@ -96,86 +103,30 @@ int main(int argc, char **argv) {
             isMovement = update(&field, HEIGHT, WIDTH);
         }
         printwField(field, HEIGHT, WIDTH, k_x, k_y);
-        
-        
+        drawManual();
         gameControl(getch(), &isPause, &isExit, &isCursor, &isEnter, &SPEED_GAME, &k_x, &k_y, field, HEIGHT, WIDTH);
-        
-        
         if (!countAlive(field, HEIGHT, WIDTH))
             isAllDeath = 1;
-        
     }
-    
     // выход из curses-режима
     endwin();
-    
     printfField(field, HEIGHT, WIDTH);
     if (isExit) {
-        printf("\n");
         drawGameOver();
     }
     if (isAllDeath) {
-        printf("\n");
         drawLiveDeath();
     }
     if (!isMovement) {
-        printf("\n");
         drawInfinity();
     }
-    
     free(field);
     return 0;
 }
 
 void gameControl(char command, int *isPause, int *isExit, int *isCursor, int *isEnter, int *SPEED_GAME, int *k_x, int *k_y, int **field, int n, int m) {
     switch(command) {
-        case 'k': {
-            if (*SPEED_GAME > 6250) *SPEED_GAME /= 2;
-            break;
-        }
-        case 'm': {
-            if (*SPEED_GAME < 100000) *SPEED_GAME *= 2;
-            break;
-        }
-        case 'e': {
-            if (*isCursor == 0) {
-                *isCursor = 1;
-                *k_x = WIDTH/2;
-                *k_y = HEIGHT/2;
-            } else if (*isCursor == 1) {
-                *isCursor = 0;
-                *k_x = -1;
-                *k_y = -1;
-            }
-            break;
-        }
-        case 'w': {
-            if (*isCursor)
-                if (*k_y > 0 ) (*k_y)--;
-            break;
-        }
-        case 's': {
-            if (*isCursor)
-                if (*k_y < HEIGHT - 1) (*k_y)++;
-            break;
-        }
-        case 'a': {
-            if (*isCursor)
-                if (*k_x > 0) (*k_x)--;
-            break;
-        }
-        case 'd': {
-            if (*isCursor)
-                if (*k_x < WIDTH - 1) (*k_x)++;
-            break;
-        }
-        case '\n': {
-            if (*isCursor) {
-                field[*k_y][*k_x] = 1;
-            }
-            break;
-        }
-        case ' ': {
+        case PAUSE: {
             if (*isPause == 0) {
                 *isPause = 1;
             } else if (*isPause == 1) {
@@ -188,15 +139,64 @@ void gameControl(char command, int *isPause, int *isExit, int *isCursor, int *is
     if (command >= '0' && command <= '9') {
         changeSpeedGame(command, SPEED_GAME);
     }
+    cursorControl(command, isCursor, isEnter, k_x, k_y, field, n, m);
+}
+
+void cursorControl(char command, int *isCursor, int *isEnter, int *k_x, int *k_y, int **field, int n, int m) {
+    switch (command) {
+        case CURSOR_SWITCH: {
+            if (*isCursor == 0) {
+                *isCursor = 1;
+                *k_x = WIDTH/2;
+                *k_y = HEIGHT/2;
+            } else if (*isCursor == 1) {
+                *isCursor = 0;
+                *k_x = -1;
+                *k_y = -1;
+            }
+            break;
+        }
+        case CURSOR_UP: {
+            if (*isCursor)
+                if (*k_y > 0) (*k_y)--;
+            break;
+        }
+        case CURSOR_DOWN: {
+            if (*isCursor)
+                if (*k_y < HEIGHT - 1) (*k_y)++;
+            break;
+        }
+        case CURSOR_LEFT: {
+            if (*isCursor)
+                if (*k_x > 0) (*k_x)--;
+            break;
+        }
+        case CURSOR_RIGHT: {
+            if (*isCursor)
+                if (*k_x < WIDTH - 1) (*k_x)++;
+            break;
+        }
+        case ENTER_LIFE: {
+            if (*isCursor) {
+                field[*k_y][*k_x] = 1;
+            }
+            break;
+        }
+    }
 }
 
 void changeSpeedGame(char speedMode, int *speedGame) {
     switch(speedMode) {
-        case '1': *speedGame = 100000; break;
-        case '2': *speedGame = 50000; break;
-        case '3': *speedGame = 25000; break;
-        case '4': *speedGame = 12500; break;
-        case '5': *speedGame = 6250; break;
+        case '1': *speedGame = 1600000; break;
+        case '2': *speedGame = 800000; break;
+        case '3': *speedGame = 400000; break;
+        case '4': *speedGame = 200000; break;
+        case '5': *speedGame = 100000; break;
+        case '6': *speedGame = 50000; break;
+        case '7': *speedGame = 25000; break;
+        case '8': *speedGame = 6250; break;
+        case '9': *speedGame = 3125; break;
+        case '0': *speedGame = 1561; break;
         default: *speedGame = 100000;
     }
 }
@@ -219,7 +219,6 @@ int enterHumanCoordinates(int **a, int n, int m) {
     zeroMatrix(a, n, m);
     while (endOfEnter != 1 && isSuccess != 0 && scanf("%d%d%c", &x, &y, &endOfCoordinates) == 3) {
         //if () {
-            fflush(stdin);
             isSuccess = 1;
             // выравнивание координат под индексы матрицы
             x--;
@@ -230,13 +229,8 @@ int enterHumanCoordinates(int **a, int n, int m) {
                 printw("out of frame\n");
                 isSuccess = 0;
             }
-            /*// если координаты не разделены символом betweenXY
-            if (spaceBetweenXY != ' ') {
-                printw("not space\n");
-                isSuccess = 0;
-            }*/
             // если конец координат не оканчивается на символ theEndOfCoordinates или символ exit
-            if (endOfCoordinates != '\n' && endOfCoordinates != '.') {
+            if (endOfCoordinates != END_OF_COORDINATES && endOfCoordinates != '.') {
                 printw("bad end of coordinates: '%c'\n", endOfCoordinates);
                 isSuccess = 0;
             }
@@ -265,19 +259,6 @@ int enterFileCoordinates(int **a, int n, int m) {
          }
        }
      return isSuccess;
-}
-
-void output(int **a, int n, int m) {
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < m - 1; j++) {
-      printf("%d ", a[i][j]);
-    }
-    if (i < n - 1) {
-      printf("%d\n", a[i][m - 1]);
-    } else {
-      printf("%d", a[i][m - 1]);
-    }
-  }
 }
 
 void zeroMatrix(int **a, int n, int m) {
@@ -319,6 +300,7 @@ int check_life(int **matrix, int n, int m, int row, int column) {
     int **neighbors;
     allocate(&neighbors, 8, 2);
     int counter = -1;
+    int isSuccess = 0;
     for (int i = row - 1; i <= row + 1; i++) {
         for (int j = column - 1; j <= column + 1; j++) {
             if (i != row || j != column) {
@@ -342,15 +324,13 @@ int check_life(int **matrix, int n, int m, int row, int column) {
     for (int i = 0; i < 8; i++)
         counter += matrix[neighbors[i][0]][neighbors[i][1]];
     if (matrix[row][column] && (counter == 2 || counter == 3)) {
-        free(neighbors);
-        return 1;
+        isSuccess = 1;
     }
     if (!(matrix[row][column]) && counter == 3) {
-        free(neighbors);
-        return 1;
+        isSuccess = 1;
     }
     free(neighbors);
-    return 0;
+    return isSuccess;
 }
 
 int countAlive(int **matrix, int n, int m) {
@@ -448,21 +428,21 @@ void drawGameOver() {
 }
 
 void drawLiveDeath() {
-      printf("================================================================================\n");
-      printf("                                                                                \n");
-      printf("             XXXXXXXXXX                                                         \n");
-      printf("          XXX          XXX                                                      \n");
-      printf("        XX                XX                                                    \n");
-      printf("       X    xxxx     xxxx   X                  Game over!                       \n");
-      printf("      X    x  X x   x  X x   X             Your Live is death :(                \n");
-      printf("      X     xxxx     xxxx    X                                                  \n");
-      printf("       X         x  x       X                                                   \n");
-      printf("        XXX              XXX                                                    \n");
-      printf("           XX   X  X  X  XX                                                     \n");
-      printf("                X  X  X                                                         \n");
-      printf("                X  X  X                                                         \n");
-      printf("                                                                                \n");
-      printf("================================================================================\n");
+      printf("==================================================================================\n");
+      printf("                                                                                  \n");
+      printf("             XXXXXXXXXX                                                           \n");
+      printf("          XXX          XXX                                                        \n");
+      printf("        XX                XX                                                      \n");
+      printf("       X    xxxx     xxxx   X                  Game over!                         \n");
+      printf("      X    x  X x   x  X x   X             Your Live is death :(                  \n");
+      printf("      X     xxxx     xxxx    X                                                    \n");
+      printf("       X         x  x       X                                                     \n");
+      printf("        XXX              XXX                                                      \n");
+      printf("           XX   X  X  X  XX                                                       \n");
+      printf("                X  X  X                                                           \n");
+      printf("                X  X  X                                                           \n");
+      printf("                                                                                  \n");
+      printf("==================================================================================\n");
 }
 
 void drawInfinity() {
@@ -480,12 +460,12 @@ void drawInfinity() {
 }
 
 void drawManual() {
-        printf("==================================================================================\n");
-        printf("                                                                                  \n");
+        printw("==================================================================================\n");
+        printw("                                                                                  \n");
         printw("                            cursor on/off - e                                     \n");
-        printf("                            to move the cursor:                                   \n");
-        printf("                     up - w; down - s; left - a; right - d                        \n");
-        printf("                                for exit - .                                      \n");
-        printf("                                                                                  \n");
-        printf("==================================================================================\n");
+        printw("                            to move the cursor:                                   \n");
+        printw("                     up - w; down - s; left - a; right - d                        \n");
+        printw("                                for exit - .                                      \n");
+        printw("                                                                                  \n");
+        printw("==================================================================================\n");
 }
