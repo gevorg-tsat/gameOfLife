@@ -63,16 +63,34 @@ void drawGameOver() {
     printf("================================================================================\n");
 }
 
+void drawInfinity(); //функция, если жизнь замирает, входя в бесконечный цикл
+void drawInfinity() {
+    printf("================================================================================\n");
+    printf("                                                                                \n");
+    printf("       XXXXXXXX           XXXXXXXX                                              \n");
+    printf("     X         XX       XX         X                                            \n");
+    printf("    X             XX  XX            X              Infinity no limit!           \n");
+    printf("   X                XX               X                                          \n");
+    printf("    X             XX  XX            X                                           \n");
+    printf("     X          XX      XX         X                                            \n");
+    printf("      XXXXXXXXXX          XXXXXXXXX                                             \n");
+    printf("                                                                                \n");
+    printf("================================================================================\n");
+    
+}
+
 
 #define SYMVOL_BORT '='
 #define SYMVOL_BORT_SIDE 'N'
 #define SYMVOL_DEATH ' '
 #define SYMVOL_LIVE '#'
+#define SYMVOL_K_LIVE 'L'
+#define SYMVOL_K_DEATH 'D'
 #define N 80
 #define M 25
 
-int drawField(int **A, int N, int M); //функция отрисовки поля
-int drawField(int **A, int N, int M) {
+int drawField(int **A, int N, int M, int K_x, int K_y); //функция отрисовки поля
+int drawField(int **A, int N, int M, int K_x, int K_y) {
     for(int a=0; a<=81; a++) {
         printw("%c", SYMVOL_BORT);
         if(a == 81) {
@@ -82,17 +100,30 @@ int drawField(int **A, int N, int M) {
     for(int i = 0; i<N; i++) {
         printw("%c", SYMVOL_BORT_SIDE);
         for(int j=0; j<M; j++) {
-            if(A[i][j] != 1) {
-                printw("%c", SYMVOL_DEATH);
+            if(A[i][j] != 1 && i == K_x && j == K_y) {
+                printw("%c", SYMVOL_K_DEATH);
+            } if(A[i][j] == 1 && i == K_x && j == K_y) {
+                    printw("%c", SYMVOL_K_LIVE);
+                } else {
+                    printw("%c", SYMVOL_DEATH);
             } else {
                 printw("%c", SYMVOL_LIVE); 
+            } 
             }
-                
-        }
+        }      
+}
         printw("%c", SYMVOL_BORT_SIDE);
         if(i<M-1) {
             printw("\n");
-        }   
+        }  
+    for(int k = 0; ) {
+        if(A != SYMVOL_DEATH) {
+            printw("%c", SYMVOL_K_LIVE);
+        } else {
+            printw("%c", SYMVOL_K_DEATH);
+        } 
+        }
+    }    
     }
     for(int a=0; a<=81; a++) {
         printw("%c", SYMVOL_BORT); {
