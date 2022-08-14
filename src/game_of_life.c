@@ -11,6 +11,9 @@
 #define SYMBOL_BORT_SIDE 'N'
 #define SYMBOL_DEATH ' '
 #define SYMBOL_LIVE '#'
+#define SYMBOL_K_LIVE 'L'
+#define SYMBOL_K_DEATH 'D'
+
 // настройки ручного ввода
 #define BETWEEN_XY ' '
 #define END_OF_COORDINATES '\n'
@@ -18,24 +21,30 @@
 
 int enterHumanCoordinates(int **a, int n, int m);
 int enterFileCoordinates(int **a, int n, int m);
-int enterHumanSpeedGame();
+void changeSpeedGame(char speedMode, int *speedGame);
+int changeSpeedGameScanf();
 int check_life(int **matrix, int n, int m, int row, int column);
 int allocate(int ***matrix, int n, int m);
-int drawFieldPrintw(int **A, int N, int M);
-int drawFieldPrintf(int **A, int N, int M);
+void printwField(int **A, int N, int M, int k_x, int k_y);
+void printfField(int **A, int N, int M);
 int countAlive(int **matrix, int n, int m);
 
 void zeroMatrix(int **a, int n, int m);
-void update(int ***matrix, int n, int m);
+int update(int ***matrix, int n, int m);
 void drawGreeting();
 void output(int **a, int n, int m);
 void drawLiveDeath();
 void drawGameOver();
+void drawInfinity();
+
+void gameControl(char command, int *isPause, int *isExit, int *isCursor, int *isEnter, int *speedGame, int *k_x, int *k_y, int **field, int n, int m);
 
 
 int main(int argc, char **argv) {
     
-    int SPEED_GAME;
+    int SPEED_GAME = 100000;
+    int k_x = -1;
+    int k_y = -1;
     
     // создание матрицы поля
     int **field = NULL;
@@ -48,12 +57,13 @@ int main(int argc, char **argv) {
     if (*(argv[1]) == '1' || *(argv[1]) == '0') {
         if (*(argv[1]) == '1') {
             enterFileCoordinates(field, HEIGHT, WIDTH);
-            SPEED_GAME = enterHumanSpeedGame();
+            freopen("/dev/tty", "r", stdin);
         } else {
             enterHumanCoordinates(field, HEIGHT, WIDTH);
-            SPEED_GAME = enterHumanSpeedGame();
+            SPEED_GAME = changeSpeedGameScanf();
         }
     }
+    
     
     // переводит терминал в curses-режим
     // (выделяет память под необходимые данные
@@ -64,10 +74,17 @@ int main(int argc, char **argv) {
     // не ожидать enter
     nodelay(stdscr, true);
     // отрисовка поля
-    drawFieldPrintw(field, HEIGHT, WIDTH);
-    int exit = 0;
-    int death_all = 0;
-    while (!exit && !death_all) {
+    printwField(field, HEIGHT, WIDTH, k_x, k_y);
+    
+    int isExit = 0;
+    int isAllDeath = 0;
+    int isPause = 0;
+    int isMovement = 1;
+    int isCursor = 0;
+    int isEnter = 0;
+    
+    
+    while (!isExit && !isAllDeath && isMovement) {
         // задержка в микросекундах
         usleep(SPEED_GAME);
         // проверяет буфер и, если он не пуст, отправляет информацию на экран
@@ -75,58 +92,121 @@ int main(int argc, char **argv) {
         // очистка экрана
         clear();
         // обновление матрицы поля в соответствии с правилами игры
-        update(&field, HEIGHT, WIDTH);
-        drawFieldPrintw(field, HEIGHT, WIDTH);
-        
-        switch(getch()) {
-            case 'a': {
-                if (SPEED_GAME > 6250) SPEED_GAME /= 2;
-                break;
-            }
-            case 'z': {
-                if (SPEED_GAME < 100000) SPEED_GAME *= 2;
-                break;
-            }
-            case EXIT: exit = 1;
+        if (!isPause) {
+            isMovement = update(&field, HEIGHT, WIDTH);
         }
+        printwField(field, HEIGHT, WIDTH, k_x, k_y);
+        
+        
+        gameControl(getch(), &isPause, &isExit, &isCursor, &isEnter, &SPEED_GAME, &k_x, &k_y, field, HEIGHT, WIDTH);
         
         
         if (!countAlive(field, HEIGHT, WIDTH))
-            death_all = 1;
+            isAllDeath = 1;
         
     }
     
     // выход из curses-режима
     endwin();
     
-    drawFieldPrintf(field, HEIGHT, WIDTH);
-    if (exit) {
+    printfField(field, HEIGHT, WIDTH);
+    if (isExit) {
         printf("\n");
         drawGameOver();
     }
-    if (death_all) {
+    if (isAllDeath) {
         printf("\n");
         drawLiveDeath();
     }
+    if (!isMovement) {
+        printf("\n");
+        drawInfinity();
+    }
     
-    output(field, HEIGHT, WIDTH);
     free(field);
     return 0;
 }
 
-int enterHumanSpeedGame() {
-    int speedMode;
-    int speed;
-    scanf("%d", &speedMode);
-    switch(speedMode) {
-        case 1: speed = 100000; break;
-        case 2: speed = 50000; break;
-        case 3: speed = 25000; break;
-        case 4: speed = 12500; break;
-        case 5: speed = 6250; break;
-        default: speed = 100000;
+void gameControl(char command, int *isPause, int *isExit, int *isCursor, int *isEnter, int *SPEED_GAME, int *k_x, int *k_y, int **field, int n, int m) {
+    switch(command) {
+        case 'k': {
+            if (*SPEED_GAME > 6250) *SPEED_GAME /= 2;
+            break;
+        }
+        case 'm': {
+            if (*SPEED_GAME < 100000) *SPEED_GAME *= 2;
+            break;
+        }
+        case 'e': {
+            if (*isCursor == 0) {
+                *isCursor = 1;
+                *k_x = WIDTH/2;
+                *k_y = HEIGHT/2;
+            } else if (*isCursor == 1) {
+                *isCursor = 0;
+                *k_x = -1;
+                *k_y = -1;
+            }
+            break;
+        }
+        case 'w': {
+            if (*isCursor)
+                if (*k_y > 0 ) (*k_y)--;
+            break;
+        }
+        case 's': {
+            if (*isCursor)
+                if (*k_y < HEIGHT - 1) (*k_y)++;
+            break;
+        }
+        case 'a': {
+            if (*isCursor)
+                if (*k_x > 0) (*k_x)--;
+            break;
+        }
+        case 'd': {
+            if (*isCursor)
+                if (*k_x < WIDTH - 1) (*k_x)++;
+            break;
+        }
+        case '\n': {
+            if (*isCursor) {
+                field[*k_y][*k_x] = 1;
+            }
+            break;
+        }
+        case ' ': {
+            if (*isPause == 0) {
+                *isPause = 1;
+            } else if (*isPause == 1) {
+                *isPause = 0;
+            }
+            break;
+        }
+        case EXIT: *isExit = 1; break;
     }
-    return speed;
+    if (command >= '0' && command <= '9') {
+        changeSpeedGame(command, SPEED_GAME);
+    }
+}
+
+void changeSpeedGame(char speedMode, int *speedGame) {
+    switch(speedMode) {
+        case '1': *speedGame = 100000; break;
+        case '2': *speedGame = 50000; break;
+        case '3': *speedGame = 25000; break;
+        case '4': *speedGame = 12500; break;
+        case '5': *speedGame = 6250; break;
+        default: *speedGame = 100000;
+    }
+}
+
+int changeSpeedGameScanf() {
+    int speedMode;
+    int speedGame;
+    scanf("%d", &speedMode);
+    changeSpeedGame(speedMode + '0', &speedGame);
+    return speedGame;
 }
 
 int enterHumanCoordinates(int **a, int n, int m) {
@@ -219,14 +299,20 @@ int allocate(int ***matrix, int n, int m) {
     return isSuccess;
 }
 
-void update(int ***matrix, int n, int m) {
+int update(int ***matrix, int n, int m) {
     int **matrix_new;
     allocate(&matrix_new, n, m);
     for (int i = 0; i < n; i++)
         for (int j = 0; j < m; j++)
             matrix_new[i][j] = check_life(*matrix, n, m, i, j);
+    int changes_check = 1;
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < m; j++)
+            if (matrix_new[i][j] != (*matrix)[i][j])
+                changes_check = 0;
     free(*matrix);
     *matrix = matrix_new;
+    return !changes_check;
 }
 
 int check_life(int **matrix, int n, int m, int row, int column) {
@@ -275,7 +361,7 @@ int countAlive(int **matrix, int n, int m) {
     return result;
 }
 
-int drawFieldPrintw(int **A, int N, int M) {
+void printwField(int **A, int N, int M, int k_x, int k_y) {
     for (int x = 0; x <= WIDTH + 1; x++) {
         printw("%c", SYMBOL_BORT);
         if (x == WIDTH + 1) printw("\n");
@@ -283,11 +369,15 @@ int drawFieldPrintw(int **A, int N, int M) {
     for (int y = 0; y < N; y++) {
         printw("%c", SYMBOL_BORT_SIDE);
         for(int x = 0; x < M; x++) {
-            if(A[y][x] != 1) {
-                printw("%c", SYMBOL_DEATH);
-            } else {
+            if(A[y][x] != 1 && x == k_x && y == k_y)
+                printw("%c", SYMBOL_K_DEATH);
+            else if (A[y][x] == 1 && x == k_x && y == k_y)
+                printw("%c", SYMBOL_K_LIVE);
+            else if (A[y][x] == 1)
                 printw("%c", SYMBOL_LIVE);
-            }
+            else if (A[y][x] == 0)
+                printw("%c", SYMBOL_DEATH);
+            
         }
         printw("%c", SYMBOL_BORT_SIDE);
         if (y < M - 1) printw("\n");
@@ -298,7 +388,7 @@ int drawFieldPrintw(int **A, int N, int M) {
     }
 }
 
-int drawFieldPrintf(int **A, int N, int M) {
+void printfField(int **A, int N, int M) {
     for (int x = 0; x <= WIDTH + 1; x++) {
         printf("%c", SYMBOL_BORT);
         if (x == WIDTH + 1) printf("\n");
@@ -373,4 +463,29 @@ void drawLiveDeath() {
       printf("                X  X  X                                                         \n");
       printf("                                                                                \n");
       printf("================================================================================\n");
+}
+
+void drawInfinity() {
+        printf("==================================================================================\n");
+        printf("                                                                                  \n");
+        printf("       XXXXXXXX           XXXXXXXX                                                \n");
+        printf("     X         XX       XX         X                                              \n");
+        printf("    X             XX  XX            X              Infinity no limit!             \n");
+        printf("   X                XX               X                                            \n");
+        printf("    X             XX  XX            X                                             \n");
+        printf("     X          XX      XX         X                                              \n");
+        printf("      XXXXXXXXXX          XXXXXXXXX                                               \n");
+        printf("                                                                                  \n");
+        printf("==================================================================================\n");
+}
+
+void drawManual() {
+        printf("==================================================================================\n");
+        printf("                                                                                  \n");
+        printw("                            cursor on/off - e                                     \n");
+        printf("                            to move the cursor:                                   \n");
+        printf("                     up - w; down - s; left - a; right - d                        \n");
+        printf("                                for exit - .                                      \n");
+        printf("                                                                                  \n");
+        printf("==================================================================================\n");
 }
