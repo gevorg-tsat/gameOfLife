@@ -2,22 +2,16 @@
 #include <stdlib.h>
 #define WIDTH 80
 #define HEIGHT 25
-​
+
 int allocate(int ***matrix, int n, int m);
 void update(int ***matrix, int n, int m);
 int check_life(int **matrix, int n, int m, int row, int column);
 void output(int **matr, int n, int m);
-​
-​
+
+
 int main(int argc, char **argv) {
-    if (*(argv[1]) == '1' || *(argv[1]) == '0') {
-        if (*(argv[1]) == '1') {
-            printf("FILE\n");
-        } else {
-            printf("MAN\n");
-        }
-    }
-​
+
+
     int **matrix = NULL;
     allocate(&matrix, HEIGHT, WIDTH);
     for (int i = 0; i < HEIGHT; i++) {
@@ -40,7 +34,7 @@ int main(int argc, char **argv) {
     }
     return 0;
 }
-​
+
 void update(int ***matrix, int n, int m) {
     int **matrix_new;
     allocate(&matrix_new, n, m);
@@ -50,7 +44,7 @@ void update(int ***matrix, int n, int m) {
     free(*matrix);
     *matrix = matrix_new;
 }
-​
+
 int check_life(int **matrix, int n, int m, int row, int column) {
     int **neighbors;
     allocate(&neighbors, 8, 2);
@@ -90,7 +84,7 @@ int check_life(int **matrix, int n, int m, int row, int column) {
     free(neighbors);
     return 0;
 }
-​
+
 int allocate(int ***matrix, int n, int m) {
     int isSuccess = 0;
     *matrix = (int**) malloc(n * m * sizeof(int) + n * sizeof(int*));
@@ -101,7 +95,7 @@ int allocate(int ***matrix, int n, int m) {
         (*matrix)[i] = ptr + m * i;
     return isSuccess;
 }
-​
+
 void output(int **matr, int n, int m) {
     for (int i = 0; i < n - 1; i++) {
         for (int j = 0; j < m; j++)
@@ -112,3 +106,4 @@ void output(int **matr, int n, int m) {
         printf("%d ", matr[n-1][j]);
     printf("%d", matr[n-1][m-1]);
 }
+
